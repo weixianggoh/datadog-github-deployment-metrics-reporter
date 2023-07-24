@@ -28,7 +28,7 @@ async function run() {
     const timestamp = Math.floor(Date.now() / 1000);
 
     // Get the latest semantic release version
-    const latestBuildVersion = await getLatestRelease(githubPat, githubRepository);
+    const latestBuildVersion = await getLatestRelease(githubPat, githubRepository) ?? 'unknown';
 
     const metricData = {
       'series': [
@@ -40,6 +40,7 @@ async function run() {
           'type': 'count',
           'tags': [
             'github:actions',
+            `build:${buildStatus}`,
             `repo:${githubRepository}`,
             `version:${latestBuildVersion}`,
             `timestamp:${timestamp}`
