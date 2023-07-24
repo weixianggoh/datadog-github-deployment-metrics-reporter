@@ -11,13 +11,5 @@ inputs:
     description: 'The GitHub repository'
     required: true
 runs:
-  using: 'composite'
-  steps:
-    - run: npm ci
-      shell: bash
-    - run: npm run start
-      shell: bash
-      env:
-        DD_API_KEY: ${{ inputs.DD_API_KEY }}
-        BUILD_STATUS: ${{ inputs.BUILD_STATUS }}
-        GITHUB_REPOSITORY: ${{ inputs.GITHUB_REPOSITORY }}
+  using: 'node16'
+  main: 'dist/index.js'
