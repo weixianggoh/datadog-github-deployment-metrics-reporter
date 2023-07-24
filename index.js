@@ -6,7 +6,7 @@ async function run() {
     const ddApikey = core.getInput('DD_API_KEY');
     const buildStatus = core.getInput('BUILD_STATUS');
     const repoName = core.getInput('GITHUB_REPOSITORY');
-    const latestBuildVersion = core.getInput('LATEST_BUILD_VERSION');
+    const latestBuildVersion = core.getInput('LATEST_BUILD_VERSION') ?? 'unknown';
     const timestamp = Math.floor(Date.now() / 1000);
 
     let metricName, eventTitle, eventText, alertType;
@@ -47,6 +47,16 @@ async function run() {
 
     console.log("Sending metric to Datadog");
     console.log(data);
+
+    core.setOutput("metric_name", metricName);
+    core.setOutput("event_title", eventTitle);
+    core.setOutput("event_text", eventText);
+    core.setOutput("alert_type", alertType);
+    core.setOutput("timestamp", timestamp);
+    core.setOutput("repo_name", repoName);
+    core.setOutput("build_status", buildStatus);
+    core.setOutput("latest_build_version", latestBuildVersion);
+
 
     // Send metric to Datadog
     await axios.post("https://api.datadoghq.com/api/v1/series", data, {
