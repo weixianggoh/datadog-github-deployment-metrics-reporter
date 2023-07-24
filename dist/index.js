@@ -9396,57 +9396,58 @@ var __webpack_exports__ = {};
 const core = __nccwpck_require__(2254);
 const axios = __nccwpck_require__(3540);
 
-async function run() {
+async function getLatestRelease(githubPat, githubRepository) {
   try {
-    const ddApikey = core.getInput('DD_API_KEY');
-    const buildStatus = core.getInput('BUILD_STATUS');
-    const repoName = core.getInput('GITHUB_REPOSITORY');
-    const timestamp = Math.floor(Date.now() / 1000);
-
-    let metricName, eventTitle, eventText, alertType;
-
-    if (buildStatus === 'success') {
-      metricName = 'build.success';
-      eventTitle = `New version deployed: ${repoName}`;
-      eventText = `Version of the service ${repoName} was successfully deployed.`;
-      alertType = 'info';
-    } else {
-      metricName = 'build.failure';
-      eventTitle = `Build failure: ${repoName}`;
-      eventText = `Build of the service ${repoName} failed.`;
-      alertType = 'error';
-    }
-
-    // Send metric to Datadog
-    await axios.post("https://api.datadoghq.com/api/v1/series", {
-      "series": [
-        {
-          "metric": metricName,
-          "points": [
-            [timestamp, 1]
-          ],
-          "type": "count",
-          "tags": ["github:actions", `build:${buildStatus}`, `repo:${repoName}`]
-        }
-      ]
-    }, {
+    const [owner, repo] = githubRepository.split('/');
+    const response = await axios.get(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
       headers: {
-        "Content-Type": "application/json",
-        "DD-API-KEY": ddApikey
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${githubPat}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
       }
     });
+    return response.data.tag_name;
+  } catch (error) {
+    console.error('Error getting latest release:', error.response.data);
+    throw error;
+  }
+}
 
-    // Send event to Datadog
-    await axios.post("https://api.datadoghq.com/api/v1/events", {
-      "title": eventTitle,
-      "text": eventText,
-      "priority": "normal",
-      "tags": ["github:actions", `build:${buildStatus}`, `repo:${repoName}`],
-      "alert_type": alertType
-    }, {
+async function run() {
+  try {
+    const ddApiKey = core.getInput('DD_API_KEY');
+    const buildStatus = core.getInput('BUILD_STATUS');
+    const githubRepository = core.getInput('GITHUB_REPOSITORY');
+    const githubPat = core.getInput('GITHUB_PAT');
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    // Get the latest semantic release version
+    const latestBuildVersion = await getLatestRelease(githubPat, githubRepository);
+
+    const metricData = {
+      'series': [
+        {
+          'metric': `build:${buildStatus}`,
+          'points': [
+            [timestamp, 1]
+          ],
+          'type': 'count',
+          'tags': [
+            'github:actions',
+            `repo:${githubRepository}`,
+            `version:${latestBuildVersion}`,
+            `timestamp:${timestamp}`
+          ]
+        }
+      ]
+    };
+
+    // Send metric to Datadog
+    await axios.post('https://api.datadoghq.com/api/v1/series', metricData, {
       headers: {
-        "Content-Type": "application/json",
-        "DD-API-KEY": ddApikey
+        'Content-Type': 'application/json',
+        'DD-API-KEY': ddApiKey
       }
     });
 
