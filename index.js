@@ -2,13 +2,19 @@ const core = require('@actions/core');
 const axios = require('axios');
 
 async function getLatestRelease(githubPat, githubRepository) {
+  try {
     const [owner, repo] = githubRepository.split('/');
     const response = await axios.get(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
-        headers: {
-            'Authorization': `token ${githubPat}`
-        }
+      headers: {
+        'Authorization': `Bearer ${githubPat}`,
+        'Content-Type': 'application/json'
+      }
     });
     return response.data.tag_name;
+  } catch (error) {
+    console.error('Error getting latest release:', error.response.data);
+    throw error;
+  }
 }
 
 async function run() {
@@ -35,9 +41,9 @@ async function run() {
     }
 
     const logEvent = {
-      ddsource: "github-actions",
+      ddsource: 'github-actions',
       ddtags: `build:${buildStatus},repo:${githubRepository},version:${latestBuildVersion},timestamp:${timestamp},alert_type:${alertType}`,
-      hostname: "github.com",
+      hostname: 'github.com',
       message: eventText,
       status: alertType,
       service: githubRepository,
@@ -45,15 +51,15 @@ async function run() {
     };
 
     const metricData = {
-      "series": [
+      'series': [
         {
-          "metric": `build:${buildStatus}`,
-          "points": [
+          'metric': `build:${buildStatus}`,
+          'points': [
             [timestamp, 1]
           ],
-          "type": "count",
-          "tags": [
-            "github:actions",
+          'type': 'count',
+          'tags': [
+            'github:actions',
             `repo:${githubRepository}`,
             `version:${latestBuildVersion}`,
             `timestamp:${timestamp}`
@@ -63,17 +69,18 @@ async function run() {
     };
 
     // Send log to Datadog
-    await axios.post(`https://http-intake.logs.datadoghq.com/v1/input/${ddApiKey}`, logEvent, {
+    await axios.post(`https://http-intake.logs.datadoghq.com/v2/input/`, logEvent, {
       headers: {
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json',
+        'DD-API-KEY': ddApiKey
       }
     });
 
     // Send metric to Datadog
-    await axios.post("https://api.datadoghq.com/api/v1/series", metricData, {
+    await axios.post('https://api.datadoghq.com/api/v2/series', metricData, {
       headers: {
-        "Content-Type": "application/json",
-        "DD-API-KEY": ddApiKey
+        'Content-Type': 'application/json',
+        'DD-API-KEY': ddApiKey
       }
     });
 
