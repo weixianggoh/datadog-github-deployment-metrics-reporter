@@ -4,7 +4,7 @@
   "description": "Action that collect and publish some code metrics from GitHub to Datadog",
   "main": "index.js",
   "scripts": {
-    "build": "ncc build index.js --license licenses.txt"
+    "build": "ncc build index.js"
   },
   "keywords": [],
   "author": "Wei Xiang Goh <weixianggoh1995@gmail.com>",
