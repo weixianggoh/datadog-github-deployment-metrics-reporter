@@ -6,6 +6,7 @@ async function run() {
     const ddApikey = core.getInput('DD_API_KEY');
     const buildStatus = core.getInput('BUILD_STATUS');
     const repoName = core.getInput('GITHUB_REPOSITORY');
+    const latestBuildVersion = core.getInput('LATEST_BUILD_VERSION');
     const timestamp = Math.floor(Date.now() / 1000);
 
     let metricName, eventTitle, eventText, alertType;
@@ -22,8 +23,7 @@ async function run() {
       alertType = 'error';
     }
 
-    // Send metric to Datadog
-    await axios.post("https://api.datadoghq.com/api/v1/series", {
+    const data = {
       "series": [
         {
           "metric": metricName,
@@ -31,24 +31,25 @@ async function run() {
             [timestamp, 1]
           ],
           "type": "count",
-          "tags": ["github:actions", `build:${buildStatus}`, `repo:${repoName}`]
+          "tags": [
+            "github:actions",
+            `build:${buildStatus}`,
+            `repo:${repoName}`,
+            `version:${latestBuildVersion}`,
+            `timestamp:${timestamp}`,
+            `event_title:${eventTitle}`,
+            `event_text:${eventText}`,
+            `alert_type:${alertType}`
+          ]
         }
       ]
-    }, {
-      headers: {
-        "Content-Type": "application/json",
-        "DD-API-KEY": ddApikey
-      }
-    });
+    };
 
-    // Send event to Datadog
-    await axios.post("https://api.datadoghq.com/api/v1/events", {
-      "title": eventTitle,
-      "text": eventText,
-      "priority": "normal",
-      "tags": ["github:actions", `build:${buildStatus}`, `repo:${repoName}`],
-      "alert_type": alertType
-    }, {
+    console.log("Sending metric to Datadog");
+    console.log(data);
+
+    // Send metric to Datadog
+    await axios.post("https://api.datadoghq.com/api/v1/series", data, {
       headers: {
         "Content-Type": "application/json",
         "DD-API-KEY": ddApikey

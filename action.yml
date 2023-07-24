@@ -10,6 +10,9 @@ inputs:
   GITHUB_REPOSITORY:
     description: 'The GitHub repository'
     required: true
+  LATEST_BUILD_VERSION:
+    description: 'The latest build version'
+    required: true
 runs:
   using: 'node16'
   main: 'dist/index.js'
