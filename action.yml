@@ -1,0 +1,23 @@
+name: 'Datadog Github Deployment Metrics Reporter'
+description: 'Send Github deployment metrics and events to Datadog'
+inputs:
+  DD_API_KEY:
+    description: 'DataDog API KEY'
+    required: true
+  BUILD_STATUS:
+    description: 'Status of the build (success or failure)'
+    required: true
+  GITHUB_REPOSITORY:
+    description: 'The GitHub repository'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - run: npm ci
+      shell: bash
+    - run: npm run start
+      shell: bash
+      env:
+        DD_API_KEY: ${{ inputs.DD_API_KEY }}
+        BUILD_STATUS: ${{ inputs.BUILD_STATUS }}
+        GITHUB_REPOSITORY: ${{ inputs.GITHUB_REPOSITORY }}
