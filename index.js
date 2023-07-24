@@ -6,8 +6,10 @@ async function getLatestRelease(githubPat, githubRepository) {
     const [owner, repo] = githubRepository.split('/');
     const response = await axios.get(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
       headers: {
+        'Accept': 'application/vnd.github+json',
         'Authorization': `Bearer ${githubPat}`,
-        'Content-Type': 'application/json'
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
       }
     });
     return response.data.tag_name;
@@ -28,28 +30,6 @@ async function run() {
     // Get the latest semantic release version
     const latestBuildVersion = await getLatestRelease(githubPat, githubRepository);
 
-    let alertType, eventTitle, eventText;
-
-    if (buildStatus === 'success') {
-      eventTitle = `New version deployed: ${githubRepository}`;
-      eventText = `Version ${latestBuildVersion} of the service ${githubRepository} was successfully deployed.`;
-      alertType = 'info';
-    } else {
-      eventTitle = `Build failure: ${githubRepository}`;
-      eventText = `Build of the service ${githubRepository} failed.`;
-      alertType = 'error';
-    }
-
-    const logEvent = {
-      ddsource: 'github-actions',
-      ddtags: `build:${buildStatus},repo:${githubRepository},version:${latestBuildVersion},timestamp:${timestamp},alert_type:${alertType}`,
-      hostname: 'github.com',
-      message: eventText,
-      status: alertType,
-      service: githubRepository,
-      title: eventTitle,
-    };
-
     const metricData = {
       'series': [
         {
@@ -68,16 +48,8 @@ async function run() {
       ]
     };
 
-    // Send log to Datadog
-    await axios.post(`https://http-intake.logs.datadoghq.com/v2/input/`, logEvent, {
-      headers: {
-        'Content-Type': 'application/json',
-        'DD-API-KEY': ddApiKey
-      }
-    });
-
     // Send metric to Datadog
-    await axios.post('https://api.datadoghq.com/api/v2/series', metricData, {
+    await axios.post('https://api.datadoghq.com/api/v1/series', metricData, {
       headers: {
         'Content-Type': 'application/json',
         'DD-API-KEY': ddApiKey
