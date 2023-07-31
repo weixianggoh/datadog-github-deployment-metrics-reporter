@@ -49,6 +49,11 @@ async function run() {
     // Get the latest semantic release version
     const latestBuildVersion = await getLatestRelease(githubPat, githubRepository) ?? 'unknown';
 
+    // Validate buildStatus
+    if (!['success', 'failure'].includes(buildStatus)) {
+      throw new Error(`Invalid build status: ${buildStatus}`);
+    }
+
     // Send build status metric
     const metricName = buildStatus === 'success' ? 'build.success' : 'build.failure';
     datadog.increment(metricName, 1, ["github:actions", `build:${buildStatus}`, `repo:${githubRepository}`, `version:${latestBuildVersion}`]);
@@ -56,10 +61,12 @@ async function run() {
     // Get PR data
     const prData = await getPullRequestData(githubPat, githubRepository);
     prData.data.forEach(pr => {
-      const createdAt = new Date(pr.created_at);
-      const mergedAt = new Date(pr.merged_at);
-      const leadTime = (mergedAt - createdAt) / 1000;
-      datadog.gauge('pr.lead_time', leadTime, [`repo:${githubRepository}`, `pr:${pr.number}`]);
+      if (pr.merged_at) { // Check if PR is merged
+        const createdAt = new Date(pr.created_at);
+        const mergedAt = new Date(pr.merged_at);
+        const leadTime = (mergedAt - createdAt) / 1000;
+        datadog.gauge('pr.lead_time', leadTime, [`repo:${githubRepository}`, `pr:${pr.number}`]);
+      }
     });
 
     // Get version data
@@ -81,6 +88,9 @@ async function run() {
     // Send latest build version
     datadog.gauge('build.latest_version', latestBuildVersion, [`repo:${githubRepository}`]);
 
+    // Close Datadog connection
+    datadog.close();
+
   } catch (error) {
     console.error(error);
     core.setFailed(error.message);
@@ -88,4 +98,3 @@ async function run() {
 }
 
 run();
-
