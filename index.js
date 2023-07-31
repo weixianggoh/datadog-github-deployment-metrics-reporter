@@ -15,7 +15,7 @@ async function getLatestRelease(githubPat, githubRepository) {
 
 async function getPullRequestData(githubPat, githubRepository) {
   const [owner, repo] = githubRepository.split('/');
-  return axios.get(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
+  return axios.get(`https://api.github.com/repos/${owner}/${repo}/pulls?state=close&per_page=100`, {
     headers: {
       'Accept': 'application/vnd.github+json',
       'Authorization': `Bearer ${githubPat}`,
@@ -37,15 +37,20 @@ async function getVersionData(githubPat, githubRepository) {
 
 async function sendDatadogMetric(ddApiKey, metricName, value, type, tags) {
   const timestamp = Math.floor(Date.now() / 1000);
+  const seriesData = [
+    {
+      "metric": metricName,
+      "points": [[timestamp, value]],
+      "type": type,
+      "tags": tags
+    }
+  ]
+
+  console.log(`Sending metric:`);
+  console.log(JSON.stringify(seriesData, null, 2));
+
   await axios.post("https://api.datadoghq.com/api/v1/series", {
-    "series": [
-      {
-        "metric": metricName,
-        "points": [[timestamp, value]],
-        "type": type,
-        "tags": tags
-      }
-    ]
+    "series": seriesData
   }, {
     headers: {
       "Content-Type": "application/json",
