@@ -1,6 +1,6 @@
 const core = require('@actions/core');
 const axios = require('axios');
-const { StatsD } = require('datadog-metrics');
+const metrics = require('datadog-metrics');
 
 async function getLatestRelease(githubPat, githubRepository) {
   const [owner, repo] = githubRepository.split('/');
@@ -44,7 +44,7 @@ async function run() {
     const githubPat = core.getInput('GITHUB_PAT');
 
     // Initialize Datadog client
-    const datadog = new StatsD({ apiKey: ddApiKey });
+    metrics.init({ apiKey: ddApiKey});
 
     // Get the latest semantic release version
     const latestBuildVersion = await getLatestRelease(githubPat, githubRepository) ?? 'unknown';
@@ -56,7 +56,7 @@ async function run() {
 
     // Send build status metric
     const metricName = buildStatus === 'success' ? 'build.success' : 'build.failure';
-    datadog.increment(metricName, 1, ["github:actions", `build:${buildStatus}`, `repo:${githubRepository}`, `version:${latestBuildVersion}`]);
+    metrics.increment(metricName, 1, ["github:actions", `build:${buildStatus}`, `repo:${githubRepository}`, `version:${latestBuildVersion}`]);
 
     // Get PR data
     const prData = await getPullRequestData(githubPat, githubRepository);
@@ -65,7 +65,7 @@ async function run() {
         const createdAt = new Date(pr.created_at);
         const mergedAt = new Date(pr.merged_at);
         const leadTime = (mergedAt - createdAt) / 1000;
-        datadog.gauge('pr.lead_time', leadTime, [`repo:${githubRepository}`, `pr:${pr.number}`]);
+        metrics.gauge('pr.lead_time', leadTime, [`repo:${githubRepository}`, `pr:${pr.number}`]);
       }
     });
 
@@ -83,13 +83,10 @@ async function run() {
     const toTime = new Date(latestVersion.created_at);
 
     const versionLeadTime = (toTime - fromTime) / 1000;
-    datadog.gauge('version.lead_time', versionLeadTime, [`repo:${githubRepository}`, `from:${previousVersion.tag_name}`, `to:${latestVersion.tag_name}`]);
+    metrics.gauge('version.lead_time', versionLeadTime, [`repo:${githubRepository}`, `from:${previousVersion.tag_name}`, `to:${latestVersion.tag_name}`]);
 
     // Send latest build version
-    datadog.gauge('build.latest_version', latestBuildVersion, [`repo:${githubRepository}`]);
-
-    // Close Datadog connection
-    datadog.close();
+    metrics.gauge('build.latest_version', latestBuildVersion, [`repo:${githubRepository}`]);
 
   } catch (error) {
     console.error(error);
