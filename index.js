@@ -43,11 +43,17 @@ async function run() {
     const githubRepository = core.getInput('GITHUB_REPOSITORY');
     const githubPat = core.getInput('GITHUB_PAT');
 
+    core.setOutput('dd_api_key', ddApiKey);
+    core.setOutput('build_status', buildStatus);
+    core.setOutput('github_repository', githubRepository);
+    core.setOutput('github_pat', githubPat);
+    
     // Initialize Datadog client
     metrics.init({ apiKey: ddApiKey});
 
     // Get the latest semantic release version
     const latestBuildVersion = await getLatestRelease(githubPat, githubRepository) ?? 'unknown';
+    core.setOutput('latest_build_version', latestBuildVersion);
 
     // Validate buildStatus
     if (!['success', 'failure'].includes(buildStatus)) {
@@ -58,8 +64,19 @@ async function run() {
     const metricName = buildStatus === 'success' ? 'build.success' : 'build.failure';
     metrics.increment(metricName, 1, ["github:actions", `build:${buildStatus}`, `repo:${githubRepository}`, `version:${latestBuildVersion}`]);
 
+    core.setOutput('build_status', buildStatus);
+    core.setOutput('build_status_metric', metricName);
+    core.setOutput('build_status_metric_tags', ["github:actions", `build:${buildStatus}`, `repo:${githubRepository}`, `version:${latestBuildVersion}`]);
+    core.setOutput('build_status_metric_value', 1);
+    core.setOutput('build_status_metric_type', 'increment');
+
     // Get PR data
     const prData = await getPullRequestData(githubPat, githubRepository);
+
+    core.setOutput('pr_count', prData.data.length);
+    core.setOutput('pr_data', JSON.stringify(prData.data));
+    core.setOutput('pr_data_json', prData.data);
+
     prData.data.forEach(pr => {
       if (pr.merged_at) { // Check if PR is merged
         const createdAt = new Date(pr.created_at);
@@ -71,6 +88,11 @@ async function run() {
 
     // Get version data
     const versionData = await getVersionData(githubPat, githubRepository);
+
+    core.setOutput('version_data', JSON.stringify(versionData.data));
+    core.setOutput('version_data_json', versionData.data);
+    core.setOutput('version_count', versionData.data.length);
+
     if (versionData.data.length < 2) {
       console.warn('Not enough releases to calculate version lead time');
       return;
@@ -81,6 +103,13 @@ async function run() {
 
     const fromTime = new Date(previousVersion.created_at);
     const toTime = new Date(latestVersion.created_at);
+
+    core.setOutput('version_lead_time', (toTime - fromTime) / 1000);
+    core.setOutput('version_lead_time_from', previousVersion.tag_name);
+    core.setOutput('version_lead_time_to', latestVersion.tag_name);
+    core.setOutput('version_lead_time_repo', githubRepository);
+    core.setOutput('version_lead_time_metric', 'version.lead_time');
+    core.setOutput('version_lead_time_metric_tags', [`repo:${githubRepository}`, `from:${previousVersion.tag_name}`, `to:${latestVersion.tag_name}`]);
 
     const versionLeadTime = (toTime - fromTime) / 1000;
     metrics.gauge('version.lead_time', versionLeadTime, [`repo:${githubRepository}`, `from:${previousVersion.tag_name}`, `to:${latestVersion.tag_name}`]);
